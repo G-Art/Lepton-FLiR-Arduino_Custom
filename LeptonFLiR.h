@@ -47,7 +47,8 @@
 //#define LEPFLIR_EXCLUDE_EXT_I2C_FUNCS   1
 
 // Uncomment this define to enable debug output.
-//#define LEPFLIR_ENABLE_DEBUG_OUTPUT     1
+#define LEPFLIR_ENABLE_DEBUG_OUTPUT     1
+#define LEPFLIR_ENABLE_FRAME_PACKET_DEBUG_OUTPUT 1
 
 // Hookup Instructions
 // -PLEASE READ-
@@ -94,6 +95,8 @@
 #define DISABLED 0x0
 #endif
 
+#define SMALL_BUFFER_SIZE  19200
+
 typedef enum {
     TelemetryData_FFCState_NeverCommanded,
     TelemetryData_FFCState_InProgress,
@@ -131,6 +134,9 @@ typedef struct {
 // to use an 8bpp mode to begin with. Note that with telemetry enabled, memory cost
 // incurs an additional 164 bytes for telemetry data storage.
 typedef enum {
+    LeptonFLiR_ImageStorageMode_160x120_16bpp,
+    LeptonFLiR_ImageStorageMode_160x120_8bpp,
+
     // Full 16bpp image mode, 9600 bytes for image data, 164 bytes for read frame (9604 bytes total, 9806 bytes if aligned)
     LeptonFLiR_ImageStorageMode_80x60_16bpp,
     // Full 8bpp image mode, 4800 bytes for image data, 164 bytes for read frame (4964 bytes total, 5006 bytes if aligned)
@@ -157,8 +163,20 @@ typedef enum {
     LeptonFLiR_TemperatureMode_Count
 } LeptonFLiR_TemperatureMode;
 
+
+/*################# PUBLIC CONSTANTS, VARIABLES & DATA TYPES ##################*/
+
+//Lepton frame error return
+enum LeptonReadError {
+    NONE, DISCARD, SEGMENT_ERROR, ROW_ERROR, SEGMENT_INVALID, SKIP_PACKAGE
+};
+
+
+
 class LeptonFLiR {
 public:
+    byte leptonFrame[164];
+    uint16_t* smallBuffer;
 #ifndef LEPFLIR_USE_SOFTWARE_I2C
     // May use a different Wire instance than Wire. Some chipsets, such as Due/Zero/etc.,
     // have a Wire1 class instance that uses the SDA1/SCL1 lines instead.
@@ -211,7 +229,7 @@ public:
     // This method reads the next image frame, taking up considerable processor time.
     // Returns a boolean indicating if next frame was successfully retrieved or not.
     bool readNextFrame();
-
+    void lepton_getRawValues();
     // AGC module commands
 
     void agc_setAGCEnabled(bool enabled); // def:disabled
@@ -421,6 +439,18 @@ private:
     size_t i2cWire_write16(uint16_t);
     uint8_t i2cWire_read(void);
     uint16_t i2cWire_read16(void);
+
+    void lepton_begin();
+
+    void lepton_end();
+
+    void lepton_reset();
+
+
+
+    LeptonReadError lepton_getPackage(byte line, byte seg);
+
+    bool savePackage(byte line, byte segment);
 };
 
 extern void wordsToHexString(uint16_t *dataWords, int dataLength, char *buffer, int maxLength);
